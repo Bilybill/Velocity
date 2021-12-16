@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
-
+from .m_rudsr import MRUDSR
 
 ###############################################################################
 # Helper Functions
@@ -28,6 +28,7 @@ def get_norm_layer(norm_type='instance'):
         norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
     elif norm_type == 'instance':
         norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+        
     elif norm_type == 'none':
         def norm_layer(x): return Identity()
     else:
@@ -115,6 +116,12 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     init_weights(net, init_type, init_gain=init_gain)
     return net
 
+def mrudsr_model(input_nc, output_nc, mid_channels, num_blocks, init_type = 'normal', init_gain = 0.02, gpu_ids = []):
+    """
+    create a m_rudsr model
+    """
+    net = MRUDSR(in_channels = input_nc, out_channels = output_nc, mid_channels = mid_channels, num_blocks = num_blocks)
+    return init_net(net, init_type, init_gain, gpu_ids)
 
 def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[]):
     """Create a generator
@@ -151,7 +158,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'resnet_6blocks':
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
     elif netG == 'unet_128':
-        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+        net = UnetGenerator(input_nc, output_nc, 5, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     elif netG == 'unet_256':
         net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     else:
@@ -472,7 +479,7 @@ class UnetSkipConnectionBlock(nn.Module):
     """
 
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.InstanceNorm2d, use_dropout=False):
         """Construct a Unet submodule with skip connections.
 
         Parameters:
@@ -505,7 +512,8 @@ class UnetSkipConnectionBlock(nn.Module):
                                         kernel_size=4, stride=2,
                                         padding=1)
             down = [downconv]
-            up = [uprelu, upconv, nn.Tanh()]
+            # up = [uprelu, upconv, nn.Tanh()]
+            up = [uprelu, upconv]
             model = down + [submodule] + up
         elif innermost:
             upconv = nn.ConvTranspose2d(inner_nc, outer_nc,
@@ -532,13 +540,14 @@ class UnetSkipConnectionBlock(nn.Module):
         if self.outermost:
             return self.model(x)
         else:   # add skip connections
+            # print(f'shape : {self.model(x).shape}')
             return torch.cat([x, self.model(x)], 1)
 
 
 class NLayerDiscriminator(nn.Module):
     """Defines a PatchGAN discriminator"""
 
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.InstanceNorm2d):
         """Construct a PatchGAN discriminator
 
         Parameters:
@@ -613,3 +622,15 @@ class PixelDiscriminator(nn.Module):
     def forward(self, input):
         """Standard forward."""
         return self.net(input)
+
+if __name__ == "__main__":
+    # D_net = NLayerDiscriminator(input_nc = 3)
+    D_net = UnetGenerator(input_nc = 3, output_nc = 1, num_downs = 8)
+    # D_net = UnetSkipConnectionBlock(inner_nc = 64, outer_nc = 64, input_nc = 3, innermost = True)
+    # D_net = PixelDiscriminator(input_nc = 3)
+    input_tensor = torch.randn(1,3,266,788)
+    output_tensor = D_net(input_tensor)
+    # gan_loss = GANLoss(gan_mode = 'lsgan')
+    # loss = gan_loss(output_tensor,False)
+
+    print(output_tensor.shape)

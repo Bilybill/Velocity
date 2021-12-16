@@ -1,0 +1,1 @@
+python trainfwi.py --model pix2pix --direction AtoB --save_path pix2pix_usealldata_multi_task --netD basic --gan_mode lsgan --gpu_ids 0 --batch_size 1 --backup --netG unet_128 --input_nc 2 --init_type xavier --iternumber all --normalize_method zscore --multi_task --output_nc 3

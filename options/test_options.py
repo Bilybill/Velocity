@@ -9,12 +9,18 @@ class TestOptions(BaseOptions):
 
     def initialize(self, parser):
         parser = BaseOptions.initialize(self, parser)  # define shared options
-        parser.add_argument('--results_dir', type=str, default='./results/', help='saves results here.')
+        parser.add_argument('--results_dir', type=str, default='./result/', help='saves results here.')
         parser.add_argument('--aspect_ratio', type=float, default=1.0, help='aspect ratio of result images')
         parser.add_argument('--phase', type=str, default='test', help='train, val, test, etc')
         # Dropout and Batchnorm has different behavioir during training and test.
         parser.add_argument('--eval', action='store_true', help='use eval mode during test time.')
         parser.add_argument('--num_test', type=int, default=50, help='how many test images to run')
+        parser.add_argument('--savefig', action='store_true', help='save test figure or not')
+        parser.add_argument('--show', action='store_true', default=False, help='show test results or not')
+        parser.add_argument('--savedata', action='store_true', default = False, help='save test results or not')
+        parser.add_argument('--savemetric2csv', action='store_true', help='save metric values to csv file')
+        parser.add_argument('--show_residual', action='store_true', default = False,help='show residual or not')
+        parser.add_argument('--compute_patch', action='store_true', default = False,help='compute patch or not')
         # rewrite devalue values
         parser.set_defaults(model='test')
         # To avoid cropping, the load_size should be the same as crop_size

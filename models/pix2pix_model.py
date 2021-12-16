@@ -1,7 +1,8 @@
 import torch
 from .base_model import BaseModel
 from . import networks
-
+import math
+import torch.nn.functional as F
 
 class Pix2PixModel(BaseModel):
     """ This class implements the pix2pix model, for learning a mapping from input images to output images given paired data.
@@ -29,15 +30,14 @@ class Pix2PixModel(BaseModel):
         By default, we use vanilla GAN loss, UNet with batchnorm, and aligned datasets.
         """
         # changing the default values to match the pix2pix paper (https://phillipi.github.io/pix2pix/)
-        parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='aligned')
+        parser.set_defaults(norm='instance', netG='unet_256', dataset_mode='aligned')
         if is_train:
-            parser.set_defaults(pool_size=0, gan_mode='vanilla')
+            parser.set_defaults(pool_size=0, gan_mode='lsgan')
             parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
-
         return parser
 
     def __init__(self, opt):
-        """Initialize the pix2pix class.
+        """Initialize the pix2pix class. 
 
         Parameters:
             opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
@@ -52,6 +52,9 @@ class Pix2PixModel(BaseModel):
             self.model_names = ['G', 'D']
         else:  # during test time, only load G
             self.model_names = ['G']
+        self.multi_task = opt.multi_task
+        if self.multi_task:
+            self.mul_param = 1
         # define networks (both generator and discriminator)
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
@@ -59,7 +62,6 @@ class Pix2PixModel(BaseModel):
         if self.isTrain:  # define a discriminator; conditional GANs need to take both input and output images; Therefore, #channels for D is input_nc + output_nc
             self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf, opt.netD,
                                           opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
-
         if self.isTrain:
             # define loss functions
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
@@ -81,11 +83,32 @@ class Pix2PixModel(BaseModel):
         AtoB = self.opt.direction == 'AtoB'
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
-        self.image_paths = input['A_paths' if AtoB else 'B_paths']
+
+        # if self.multi_task:
+        #     self.real_C = self.real_B[:,1:]
+        #     self.real_B = self.real_C[:,0]
+    
+    def pad(self, x):
+        def floor_ceil(n):
+            return math.floor(n), math.ceil(n)
+        b, c, h, w = x.shape
+        w_mult = ((w - 1) | 31) + 1
+        h_mult = ((h - 1) | 31) + 1
+        w_pad = floor_ceil((w_mult - w) / 2)
+        h_pad = floor_ceil((h_mult - h) / 2)
+        x = F.pad(x, w_pad + h_pad, mode = 'replicate')
+        return x, (h_pad, w_pad, h_mult, w_mult)
+
+    def unpad(self, x, h_pad, w_pad, h_mult, w_mult):
+        return x[..., h_pad[0]:h_mult - h_pad[1], w_pad[0]:w_mult - w_pad[1]]
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
+        y, pad_size = self.pad(self.real_A)
+        self.real_A = y
         self.fake_B = self.netG(self.real_A)  # G(A)
+        self.fake_B = self.unpad(self.fake_B, *pad_size)
+        self.real_A = self.unpad(self.real_A, *pad_size)
 
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
@@ -108,7 +131,10 @@ class Pix2PixModel(BaseModel):
         pred_fake = self.netD(fake_AB)
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
-        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
+        if not self.multi_task:
+            self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
+        else:
+            self.loss_G_L1 = (self.criterionL1(self.fake_B[:,0], self.real_B[:,0]) + self.mul_param * self.criterionL1(self.fake_B[:,1:], self.real_B[:,1:])) * self.opt.lambda_L1
         # combine loss and calculate gradients
         self.loss_G = self.loss_G_GAN + self.loss_G_L1
         self.loss_G.backward()
