@@ -44,12 +44,10 @@ def compare_rtm_and_sth_pcc(visuals, savepath = None, opt = None, vec_num = None
         born_img = np.squeeze(visuals['real_A'][:,2,:,:].cpu().float().numpy())
     
     vec_true_vec = truevec[0]
-    # print(vec_true_vec.shape)
     vecoriginal_PCC = PCC(itervec_img,vec_true_vec)
     vecoriginal_MAE = MAE(itervec_img,vec_true_vec)
     rtm_PCC = PCC(rtm_img,vec_true_vec)
     rtm_MAE = MAE(rtm_img,vec_true_vec)
-
     # print(f'{np.min(rtm_img)}~{np.max(rtm_img)}')
     # print(f'{np.min(output_vec)}~{np.max(output_vec)}')
 

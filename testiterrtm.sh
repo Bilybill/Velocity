@@ -1,1 +1,1 @@
-python testiterrtm.py --model pix2pix --direction AtoB --save_path pix2pix_usealldata_multi_task --gpu_ids 0 --eval --norm instance --netG unet_128 --epoch best_pcc --input_nc 2 --normalize_method zscore --multi_task --output_nc 3
+python test_iter_rtm.py --model pix2pix --direction AtoB --save_path pix2pix_usealldata_multi_task --gpu_ids 0 --eval --norm instance --netG unet_128 --epoch best_pcc --input_nc 2 --normalize_method zscore --multi_task --output_nc 3 --savefig

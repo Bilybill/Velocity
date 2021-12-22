@@ -633,13 +633,13 @@ int main(int argc,char *argv[])
 /********aaa************/  
       FILE *fpsnap, *fpshot, *fpmig, *fpillum, *fpadcigs;
 /********* parameters *************/
-      sprintf(FN1,"inputVel/%04d.bin",index);
+      sprintf(FN1,"../data/fwidata/truevel/%04d.bin",index);
       printf("%s\n",FN1);
-      sprintf(FN2,"inputVel/%04d.bin",index);
+      sprintf(FN2,"../data/fwidata/truevel/%04d.bin",index);
       printf("%s\n",FN2);
-      sprintf(FN3,"inputVel/%04d.bin",index);
+      sprintf(FN3,"../data/fwidata/truevel/%04d.bin",index);
       printf("%s\n",FN3);
-      sprintf(FN4,"inputVel/%04d.bin",index);
+      sprintf(FN4,"../data/fwidata/truevel/%04d.bin",index);
       printf("%s\n",FN4);
       sprintf(FN5,"mypar.dat");
       if((fpsnap=fopen(FN5,"r"))==NULL){
@@ -731,16 +731,18 @@ int main(int argc,char *argv[])
        // obtain the initial model
        if(1)
        {
-            sprintf(FN8,"input4DL/vel%04d.bin",iter);
+            sprintf(FN8,"../data/fwidata/tempoutputvec/vec%04d_iter%04d.bin",index,iter);
             fpsnap=fopen(FN8,"rb");
             if(fpsnap == NULL){
                   printf("cannot open file:%s\n", FN8);
                   exit(0);
             }
+
             // if((fpsnap=fopen(FN5,"r"))==NULL){
             //       printf("cannot open file:%s\n",FN5);
             //       exit(0);
             // }
+            
             for(int ix=npml;ix<=nnx-npml-1;ix++)
            {
                  for(int iz=npml;iz<=nnz-npml-1;iz++)
@@ -908,7 +910,7 @@ int main(int argc,char *argv[])
       
       cudaMemcpy(e, migration, nz*nx*sizeof(float), cudaMemcpyDeviceToHost);
       laplace_filter(1,nz,nx,e,d);
-      sprintf(FN7,"input4DL/mig%d.bin",iter);
+      sprintf(FN7,"../data/fwidata/tempoutputrtm/mig_vec%04d_iter%04d.bin",index, iter);
       fpmig=fopen(FN7,"wb");
       fwrite(d,sizeof(float),nx*nz,fpmig);
       fclose(fpmig); 
